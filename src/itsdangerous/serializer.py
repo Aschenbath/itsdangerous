@@ -60,6 +60,9 @@ class Serializer(t.Generic[_TSerialized]):
         :attr:`default_serializer`, which defaults to :mod:`json`.
     :param serializer_kwargs: Keyword arguments to pass when calling
         ``serializer.dumps``.
+    :param deserializer_kwargs: Keyword arguments to pass when calling
+        ``serializer.loads``. Kept separate from ``serializer_kwargs``
+        because dumping and loading may accept different arguments.
     :param signer: A ``Signer`` class to instantiate when signing data.
         Defaults to :attr:`default_signer`, which defaults to
         :class:`~itsdangerous.signer.Signer`.
@@ -70,6 +73,9 @@ class Serializer(t.Generic[_TSerialized]):
         of ``signer_kwargs``, a ``Signer`` class, or a tuple of
         ``(signer, signer_kwargs)``. Defaults to
         :attr:`default_fallback_signers`.
+
+    .. versionchanged:: 2.3
+        Added ``deserializer_kwargs``.
 
     .. versionchanged:: 2.0
         Added support for key rotation by passing a list to
@@ -117,6 +123,7 @@ class Serializer(t.Generic[_TSerialized]):
             dict[str, t.Any] | tuple[type[Signer], dict[str, t.Any]] | type[Signer]
         ]
         | None = None,
+        deserializer_kwargs: dict[str, t.Any] | None = None,
     ): ...
 
     # Serializer[bytes] with a bytes data serializer positional argument.
@@ -133,6 +140,7 @@ class Serializer(t.Generic[_TSerialized]):
             dict[str, t.Any] | tuple[type[Signer], dict[str, t.Any]] | type[Signer]
         ]
         | None = None,
+        deserializer_kwargs: dict[str, t.Any] | None = None,
     ): ...
 
     # Serializer[bytes] with a bytes data serializer keyword argument.
@@ -150,6 +158,7 @@ class Serializer(t.Generic[_TSerialized]):
             dict[str, t.Any] | tuple[type[Signer], dict[str, t.Any]] | type[Signer]
         ]
         | None = None,
+        deserializer_kwargs: dict[str, t.Any] | None = None,
     ): ...
 
     # Fall back with a positional argument. If the strict signature of
@@ -168,6 +177,7 @@ class Serializer(t.Generic[_TSerialized]):
             dict[str, t.Any] | tuple[type[Signer], dict[str, t.Any]] | type[Signer]
         ]
         | None = None,
+        deserializer_kwargs: dict[str, t.Any] | None = None,
     ): ...
 
     # Fall back with a keyword argument.
@@ -185,6 +195,7 @@ class Serializer(t.Generic[_TSerialized]):
             dict[str, t.Any] | tuple[type[Signer], dict[str, t.Any]] | type[Signer]
         ]
         | None = None,
+        deserializer_kwargs: dict[str, t.Any] | None = None,
     ): ...
 
     def __init__(
@@ -199,6 +210,7 @@ class Serializer(t.Generic[_TSerialized]):
             dict[str, t.Any] | tuple[type[Signer], dict[str, t.Any]] | type[Signer]
         ]
         | None = None,
+        deserializer_kwargs: dict[str, t.Any] | None = None,
     ):
         #: The list of secret keys to try for verifying signatures, from
         #: oldest to newest. The newest (last) key is used for signing.
@@ -232,6 +244,7 @@ class Serializer(t.Generic[_TSerialized]):
             dict[str, t.Any] | tuple[type[Signer], dict[str, t.Any]] | type[Signer]
         ] = fallback_signers
         self.serializer_kwargs: dict[str, t.Any] = serializer_kwargs or {}
+        self.deserializer_kwargs: dict[str, t.Any] = deserializer_kwargs or {}
 
     @property
     def secret_key(self) -> bytes:
@@ -258,9 +271,12 @@ class Serializer(t.Generic[_TSerialized]):
 
         try:
             if is_text:
-                return use_serializer.loads(payload.decode("utf-8"))  # type: ignore[arg-type]
+                return use_serializer.loads(
+                    payload.decode("utf-8"),  # type: ignore[arg-type]
+                    **self.deserializer_kwargs,
+                )
 
-            return use_serializer.loads(payload)  # type: ignore[arg-type]
+            return use_serializer.loads(payload, **self.deserializer_kwargs)  # type: ignore[arg-type]
         except Exception as e:
             raise BadPayload(
                 "Could not load the payload because an exception"

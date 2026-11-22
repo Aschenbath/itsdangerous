@@ -163,6 +163,41 @@ class TestSerializer:
 
         assert fallback_serializer.loads(signed) == value
 
+    @pytest.mark.parametrize("binary", [False, True])
+    def test_deserializer_kwargs(self, serializer_factory, binary):
+        class DataSerializer:
+            @staticmethod
+            def dumps(value, *, dump_only=None):
+                value = str(value)
+                return value.encode() if binary else value
+
+            @staticmethod
+            def loads(payload, *, load_only):
+                assert isinstance(payload, bytes if binary else str)
+                assert load_only == "configured"
+                return int(payload)
+
+        serializer = serializer_factory(
+            serializer=DataSerializer,
+            serializer_kwargs={"dump_only": True},
+            deserializer_kwargs={"load_only": "configured"},
+        )
+        signed = serializer.dumps(42)
+        assert serializer.loads(signed) == 42
+        assert serializer.loads_unsafe(signed) == (True, 42)
+        assert (
+            serializer.load_payload(
+                serializer.dump_payload(42), serializer=DataSerializer
+            )
+            == 42
+        )
+
+    def test_invalid_deserializer_kwargs_wrap_bad_payload(self, serializer_factory):
+        serializer = serializer_factory(deserializer_kwargs={"invalid_option": True})
+        with pytest.raises(BadPayload) as exc_info:
+            serializer.loads(serializer.dumps(42))
+        assert isinstance(exc_info.value.original_error, TypeError)
+
     def test_iter_unsigners(self, serializer: Serializer, serializer_factory):
         class Signer256(serializer.signer):  # type: ignore
             default_digest_method = hashlib.sha256

@@ -5,6 +5,8 @@ Unreleased
 
 -   Drop support for Python 3.8 and 3.9.
 -   Remove previously deprecated code.
+-   Add ``Serializer(deserializer_kwargs=...)`` to configure payload loading
+    separately from dumping. :issue:`389`
 
 
 Version 2.2.0
